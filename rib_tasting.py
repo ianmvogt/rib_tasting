@@ -136,7 +136,7 @@ def clear_sheets_data(service, spreadsheet_id):
     try:
         service.spreadsheets().values().clear(
             spreadsheetId=spreadsheet_id,
-            range='Scores!A2:H'
+            range='Scores!A2:I'
         ).execute()
         return True
     except HttpError as e:
