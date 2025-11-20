@@ -58,7 +58,7 @@ def init_spreadsheet():
     return None
 
 def calculate_total(scores_dict):
-    """Calculate total score (multiply each by 5, then sum for 25-100 scale)"""
+    """Calculate total score (multiply each by 5, then sum for 20-100 scale)"""
     return sum(scores_dict.get(cat_id, 0) * 5 for cat_id in CATEGORIES.keys())
 
 def save_to_sheets(service, spreadsheet_id, submission):
@@ -225,7 +225,7 @@ def calculate_averages(scores_list):
 def home_page():
     """Home page for entering name and starting"""
     st.title("🍖 Blind Rib Tasting")
-    st.write("Rate 6 sets of ribs across 4 categories (1-5 scale, total score: 25-100)")
+    st.write("Rate 6 sets of ribs across 4 categories (1-5 scale, total score: 20-100)")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
