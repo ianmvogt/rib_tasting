@@ -58,7 +58,7 @@ def init_spreadsheet():
     return None
 
 def calculate_total(scores_dict):
-    """Calculate total score (multiply each by 5, then sum for 20-100 scale)"""
+    """Calculate total score (multiply each by 5, then sum for 25-100 scale)"""
     return sum(scores_dict.get(cat_id, 0) * 5 for cat_id in CATEGORIES.keys())
 
 def save_to_sheets(service, spreadsheet_id, submission):
@@ -237,13 +237,13 @@ def home_page():
         col_a, col_b = st.columns(2)
         
         with col_a:
-            if st.button("Start Tasting", type="primary", use_container_width=True, disabled=not name):
+            if st.button("Start Tasting", type="primary", width="stretch", disabled=not name):
                 st.session_state.user_name = name
                 st.session_state.current_view = 'scoring'
                 st.rerun()
         
         with col_b:
-            if st.button("View Results", use_container_width=True):
+            if st.button("View Results", width="stretch"):
                 st.session_state.current_view = 'results'
                 st.rerun()
         
@@ -256,7 +256,7 @@ def home_page():
         st.write("---")
         
         # Cumulative database button
-        if st.button("📈 View Cumulative Database", use_container_width=True):
+        if st.button("📈 View Cumulative Database", width="stretch"):
             st.session_state.current_view = 'cumulative'
             st.rerun()
 
@@ -385,7 +385,7 @@ def results_page():
                  barmode='group', height=400,
                  color_discrete_sequence=px.colors.sequential.Oranges_r)
     fig.update_yaxes(range=[0, 5])
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     
     st.write("---")
     
@@ -412,7 +412,7 @@ def results_page():
                 title=rib_set,
                 height=300
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     
     st.write("---")
     
@@ -423,13 +423,15 @@ def results_page():
             
             submission_data = []
             for i, rib_set in enumerate(RIB_SETS):
+                if i not in submission['scores']:
+                    continue  # Skip if this set wasn't scored (for backwards compatibility)
                 row = {'Rib Set': rib_set}
                 for cat_id, cat_info in CATEGORIES.items():
                     row[cat_info['name']] = submission['scores'][i].get(cat_id, 0)
                 row['Total'] = calculate_total(submission['scores'][i])
                 submission_data.append(row)
             
-            st.dataframe(pd.DataFrame(submission_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(submission_data), width="stretch")
             st.write("---")
 
 def cumulative_page():
@@ -486,7 +488,7 @@ def cumulative_page():
                      barmode='group', height=400,
                      color_discrete_sequence=px.colors.sequential.Oranges_r)
         fig.update_yaxes(range=[0, 5])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         st.write("---")
         
@@ -513,7 +515,7 @@ def cumulative_page():
                     title=rib_set,
                     height=300
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
         
         st.write("---")
         
@@ -538,13 +540,15 @@ def cumulative_page():
                 
                 submission_data = []
                 for i, rib_set in enumerate(RIB_SETS):
+                    if i not in submission['scores']:
+                        continue  # Skip if this set wasn't scored (for backwards compatibility)
                     row = {'Rib Set': rib_set}
                     for cat_id, cat_info in CATEGORIES.items():
                         row[cat_info['name']] = submission['scores'][i].get(cat_id, 0)
                     row['Total'] = calculate_total(submission['scores'][i])
                     submission_data.append(row)
                 
-                st.dataframe(pd.DataFrame(submission_data), use_container_width=True)
+                st.dataframe(pd.DataFrame(submission_data), width="stretch")
                 st.write("---")
     else:
         st.error("Google Sheets not configured. Please set up the connection in secrets.")
