@@ -13,14 +13,13 @@ st.set_page_config(page_title="Blind Rib Tasting", page_icon="🍖", layout="wid
 
 # Categories and rib sets
 CATEGORIES = {
-    'tenderness': {'name': 'Tenderness', 'max': 10},
-    'flavor': {'name': 'Flavor', 'max': 10},
-    'sauce': {'name': 'Sauce', 'max': 10},
-    'smoke': {'name': 'Smoke/Char', 'max': 10},
-    'appearance': {'name': 'Appearance', 'max': 10}
+    'tenderness': {'name': 'Tenderness', 'max': 5},
+    'flavor_sauce': {'name': 'Flavor / Sauce', 'max': 5},
+    'smoke_char': {'name': 'Smoke / Char / Base Rub', 'max': 5},
+    'overall': {'name': 'Overall Taste', 'max': 5}
 }
 
-RIB_SETS = ['Set A', 'Set B', 'Set C', 'Set D', 'Set E']
+RIB_SETS = ['Set A', 'Set B', 'Set C', 'Set D', 'Set E', 'Set F']
 
 # Initialize session state
 if 'scores' not in st.session_state:
@@ -58,6 +57,10 @@ def init_spreadsheet():
         return st.secrets['spreadsheet_id']
     return None
 
+def calculate_total(scores_dict):
+    """Calculate total score (multiply each by 5, then sum for 20-100 scale)"""
+    return sum(scores_dict.get(cat_id, 0) * 5 for cat_id in CATEGORIES.keys())
+
 def save_to_sheets(service, spreadsheet_id, submission):
     """Save submission to Google Sheets"""
     try:
@@ -71,8 +74,8 @@ def save_to_sheets(service, spreadsheet_id, submission):
                 score = submission['scores'][set_idx].get(cat_id, 0)
                 row.append(score)
             
-            # Calculate total for this set
-            total = sum(submission['scores'][set_idx].get(cat_id, 0) for cat_id in CATEGORIES.keys())
+            # Calculate total for this set (each score * 5)
+            total = calculate_total(submission['scores'][set_idx])
             row.append(total)
             
             # Append to sheet
@@ -176,11 +179,11 @@ def ensure_sheet_structure(service, spreadsheet_id):
         
         if not result.get('values'):
             header = ['Timestamp', 'User Name', 'Rib Set', 
-                     'Tenderness', 'Flavor', 'Sauce', 'Smoke/Char', 'Appearance', 'Total']
+                     'Tenderness', 'Flavor/Sauce', 'Smoke/Char/Rub', 'Overall Taste', 'Total']
             body = {'values': [header]}
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range='Scores!A1:I1',
+                range='Scores!A1:H1',
                 valueInputOption='RAW',
                 body=body
             ).execute()
@@ -215,14 +218,14 @@ def calculate_averages(scores_list):
             scores = [s['scores'][i].get(cat_id, 0) for s in scores_list 
                      if i in s['scores'] and cat_id in s['scores'][i]]
             averages[rib_set][cat_id] = sum(scores) / len(scores) if scores else 0
-        averages[rib_set]['total'] = sum(averages[rib_set].values())
+        averages[rib_set]['total'] = calculate_total(averages[rib_set])
     
     return averages
 
 def home_page():
     """Home page for entering name and starting"""
     st.title("🍖 Blind Rib Tasting")
-    st.write("Rate 5 sets of ribs across multiple categories")
+    st.write("Rate 6 sets of ribs across 4 categories (1-5 scale, total score: 25-100)")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -286,12 +289,16 @@ def scoring_page():
         current_score = st.session_state.current_submission[rib_set_idx].get(cat_id, 0)
         score = st.slider(
             f"{cat_info['name']}",
-            min_value=0,
+            min_value=1,
             max_value=cat_info['max'],
-            value=current_score,
+            value=current_score if current_score > 0 else 3,
             key=f"score_{rib_set_idx}_{cat_id}"
         )
         st.session_state.current_submission[rib_set_idx][cat_id] = score
+    
+    # Show current total for this set
+    current_total = calculate_total(st.session_state.current_submission[rib_set_idx])
+    st.metric("Current Total", f"{current_total}/100")
     
     st.write("---")
     
@@ -357,7 +364,7 @@ def results_page():
     
     for rank, (rib_set, total) in enumerate(rankings, 1):
         medal = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}."
-        st.metric(f"{medal} {rib_set}", f"{total:.1f}/50")
+        st.metric(f"{medal} {rib_set}", f"{total:.1f}/100")
     
     st.write("---")
     
@@ -377,6 +384,7 @@ def results_page():
     fig = px.bar(df, x='Rib Set', y='Score', color='Category', 
                  barmode='group', height=400,
                  color_discrete_sequence=px.colors.sequential.Oranges_r)
+    fig.update_yaxes(range=[0, 5])
     st.plotly_chart(fig, use_container_width=True)
     
     st.write("---")
@@ -399,7 +407,7 @@ def results_page():
             ))
             
             fig.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+                polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
                 showlegend=False,
                 title=rib_set,
                 height=300
@@ -418,6 +426,7 @@ def results_page():
                 row = {'Rib Set': rib_set}
                 for cat_id, cat_info in CATEGORIES.items():
                     row[cat_info['name']] = submission['scores'][i].get(cat_id, 0)
+                row['Total'] = calculate_total(submission['scores'][i])
                 submission_data.append(row)
             
             st.dataframe(pd.DataFrame(submission_data), use_container_width=True)
@@ -456,7 +465,7 @@ def cumulative_page():
         
         for rank, (rib_set, total) in enumerate(rankings, 1):
             medal = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}."
-            st.metric(f"{medal} {rib_set}", f"{total:.1f}/50")
+            st.metric(f"{medal} {rib_set}", f"{total:.1f}/100")
         
         st.write("---")
         
@@ -476,6 +485,7 @@ def cumulative_page():
         fig = px.bar(df, x='Rib Set', y='Score', color='Category', 
                      barmode='group', height=400,
                      color_discrete_sequence=px.colors.sequential.Oranges_r)
+        fig.update_yaxes(range=[0, 5])
         st.plotly_chart(fig, use_container_width=True)
         
         st.write("---")
@@ -498,7 +508,7 @@ def cumulative_page():
                 ))
                 
                 fig.update_layout(
-                    polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+                    polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
                     showlegend=False,
                     title=rib_set,
                     height=300
@@ -531,6 +541,7 @@ def cumulative_page():
                     row = {'Rib Set': rib_set}
                     for cat_id, cat_info in CATEGORIES.items():
                         row[cat_info['name']] = submission['scores'][i].get(cat_id, 0)
+                    row['Total'] = calculate_total(submission['scores'][i])
                     submission_data.append(row)
                 
                 st.dataframe(pd.DataFrame(submission_data), use_container_width=True)
